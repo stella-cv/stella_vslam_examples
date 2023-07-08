@@ -30,14 +30,13 @@ endif()
 
 # ----- Show dialog -----
 
-if(USE_PANGOLIN_VIEWER)
+find_package(pangolin_viewer)
+if(pangolin_viewer_FOUND)
     message(STATUS "Viewer for examples: PangolinViewer")
-    find_package(pangolin_viewer REQUIRED)
-elseif(USE_SOCKET_PUBLISHER)
+endif()
+find_package(socket_publisher)
+if(socket_publisher_FOUND)
     message(STATUS "Viewer for examples: SocketPublisher")
-    find_package(socket_publisher REQUIRED)
-else()
-    message(STATUS "Viewer for examples: None")
 endif()
 
 # ----- Build example executables -----
@@ -75,14 +74,15 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
                           RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_BINARY_DIR}")
 
     # PangolinViewer is used on a priority basis
-    if(USE_PANGOLIN_VIEWER)
+    if(pangolin_viewer_FOUND)
         # Set macro flag
-        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_PANGOLIN_VIEWER)
+        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE HAVE_PANGOLIN_VIEWER)
         # Link viewer
         target_link_libraries(${EXECUTABLE_TARGET} PRIVATE pangolin_viewer::pangolin_viewer)
-    elseif(USE_SOCKET_PUBLISHER)
+    endif()
+    if(socket_publisher_FOUND)
         # Set macro flag
-        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE USE_SOCKET_PUBLISHER)
+        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE HAVE_SOCKET_PUBLISHER)
         # Link viewer
         target_link_libraries(${EXECUTABLE_TARGET} PRIVATE socket_publisher::socket_publisher)
     endif()

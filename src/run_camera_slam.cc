@@ -1,6 +1,7 @@
-#ifdef USE_PANGOLIN_VIEWER
+#ifdef HAVE_PANGOLIN_VIEWER
 #include "pangolin_viewer/viewer.h"
-#elif USE_SOCKET_PUBLISHER
+#endif
+#ifdef HAVE_SOCKET_PUBLISHER
 #include "socket_publisher/publisher.h"
 #endif
 
@@ -39,18 +40,31 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                   const std::string& mask_img_path,
                   const float scale,
                   const std::string& map_db_path,
-                  const bool disable_gui) {
+                  const std::string& viewer_string) {
     // load the mask image
     const cv::Mat mask = mask_img_path.empty() ? cv::Mat{} : cv::imread(mask_img_path, cv::IMREAD_GRAYSCALE);
 
     // create a viewer object
     // and pass the frame_publisher and the map_publisher
-#ifdef USE_PANGOLIN_VIEWER
-    pangolin_viewer::viewer viewer(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
-#elif USE_SOCKET_PUBLISHER
-    socket_publisher::publisher publisher(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
+#ifdef HAVE_PANGOLIN_VIEWER
+    std::shared_ptr<pangolin_viewer::viewer> viewer;
+    if (viewer_string == "pangolin_viewer") {
+        viewer = std::make_shared<pangolin_viewer::viewer>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
+#endif
+#ifdef HAVE_SOCKET_PUBLISHER
+    std::shared_ptr<socket_publisher::publisher> publisher;
+    if (viewer_string == "socket_publisher") {
+        publisher = std::make_shared<socket_publisher::publisher>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
 #endif
 
     auto video = cv::VideoCapture(cam_num);
@@ -103,12 +117,15 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
         }
     });
 
-    if (!disable_gui) {
-        // run the viewer in the current thread
-#ifdef USE_PANGOLIN_VIEWER
-        viewer.run();
-#elif USE_SOCKET_PUBLISHER
-        publisher.run();
+    // run the viewer in the current thread
+    if (viewer_string == "pangolin_viewer") {
+#ifdef HAVE_PANGOLIN_VIEWER
+        viewer->run();
+#endif
+    }
+    if (viewer_string == "socket_publisher") {
+#ifdef HAVE_SOCKET_PUBLISHER
+        publisher->run();
 #endif
     }
 
@@ -137,17 +154,30 @@ int stereo_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                     const std::string& mask_img_path,
                     const float scale,
                     const std::string& map_db_path,
-                    const bool disable_gui) {
+                    const std::string& viewer_string) {
     const cv::Mat mask = mask_img_path.empty() ? cv::Mat{} : cv::imread(mask_img_path, cv::IMREAD_GRAYSCALE);
 
     // create a viewer object
     // and pass the frame_publisher and the map_publisher
-#ifdef USE_PANGOLIN_VIEWER
-    pangolin_viewer::viewer viewer(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
-#elif USE_SOCKET_PUBLISHER
-    socket_publisher::publisher publisher(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
+#ifdef HAVE_PANGOLIN_VIEWER
+    std::shared_ptr<pangolin_viewer::viewer> viewer;
+    if (viewer_string == "pangolin_viewer") {
+        viewer = std::make_shared<pangolin_viewer::viewer>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
+#endif
+#ifdef HAVE_SOCKET_PUBLISHER
+    std::shared_ptr<socket_publisher::publisher> publisher;
+    if (viewer_string == "socket_publisher") {
+        publisher = std::make_shared<socket_publisher::publisher>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
 #endif
 
     cv::VideoCapture videos[2];
@@ -208,12 +238,15 @@ int stereo_tracking(const std::shared_ptr<stella_vslam::system>& slam,
         }
     });
 
-    if (!disable_gui) {
-        // run the viewer in the current thread
-#ifdef USE_PANGOLIN_VIEWER
-        viewer.run();
-#elif USE_SOCKET_PUBLISHER
-        publisher.run();
+    // run the viewer in the current thread
+    if (viewer_string == "pangolin_viewer") {
+#ifdef HAVE_PANGOLIN_VIEWER
+        viewer->run();
+#endif
+    }
+    if (viewer_string == "socket_publisher") {
+#ifdef HAVE_SOCKET_PUBLISHER
+        publisher->run();
 #endif
     }
 
@@ -254,7 +287,7 @@ int main(int argc, char* argv[]) {
     auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
     auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
     auto temporal_mapping = op.add<popl::Switch>("", "temporal-mapping", "enable temporal mapping");
-    auto disable_gui = op.add<popl::Switch>("", "disable-gui", "run without GUI");
+    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [pangolin_viewer, socket_publisher, none]");
     try {
         op.parse(argc, argv);
     }
@@ -283,6 +316,41 @@ int main(int argc, char* argv[]) {
         std::cerr << std::endl;
         std::cerr << op << std::endl;
         return EXIT_FAILURE;
+    }
+
+    // viewer
+    std::string viewer_string;
+    if (viewer->is_set()) {
+        viewer_string = viewer->value();
+        if (viewer_string != "pangolin_viewer" && viewer_string != "socket_publisher" && viewer_string != "none") {
+            std::cerr << "invalid arguments (--viewer)" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#ifndef HAVE_PANGOLIN_VIEWER
+        if (viewer_string == "pangolin_viewer") {
+            std::cerr << "pangolin_viewer not linked" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#endif
+#ifndef HAVE_SOCKET_PUBLISHER
+        if (viewer_string == "socket_publisher") {
+            std::cerr << "socket_publisher not linked" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#endif
+    }
+    else {
+#ifdef HAVE_PANGOLIN_VIEWER
+        viewer_string = "pangolin_viewer";
+#elif defined(HAVE_SOCKET_PUBLISHER)
+        viewer_string = "socket_publisher";
+#endif
     }
 
     // setup logger
@@ -341,7 +409,7 @@ int main(int argc, char* argv[]) {
                             mask_img_path->value(),
                             scale->value(),
                             map_db_path_out->value(),
-                            disable_gui->value());
+                            viewer_string);
     }
     else if (slam->get_camera()->setup_type_ == stella_vslam::camera::setup_type_t::Stereo) {
         ret = stereo_tracking(slam,
@@ -350,7 +418,7 @@ int main(int argc, char* argv[]) {
                               mask_img_path->value(),
                               scale->value(),
                               map_db_path_out->value(),
-                              disable_gui->value());
+                              viewer_string);
     }
     else {
         throw std::runtime_error("Invalid setup type: " + slam->get_camera()->get_setup_type_string());

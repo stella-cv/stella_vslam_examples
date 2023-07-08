@@ -1,6 +1,7 @@
-#ifdef USE_PANGOLIN_VIEWER
+#ifdef HAVE_PANGOLIN_VIEWER
 #include "pangolin_viewer/viewer.h"
-#elif USE_SOCKET_PUBLISHER
+#endif
+#ifdef HAVE_SOCKET_PUBLISHER
 #include "socket_publisher/publisher.h"
 #endif
 
@@ -31,7 +32,7 @@ int run(const std::shared_ptr<stella_vslam::config>& cfg,
         const bool auto_term,
         const bool eval_log,
         const std::string& map_db_path,
-        const bool disable_gui) {
+        const std::string& viewer_string) {
     // build a SLAM system
     auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path);
     bool need_initialize = false;
@@ -44,12 +45,25 @@ int run(const std::shared_ptr<stella_vslam::config>& cfg,
 
     // create a viewer object
     // and pass the frame_publisher and the map_publisher
-#ifdef USE_PANGOLIN_VIEWER
-    pangolin_viewer::viewer viewer(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
-#elif USE_SOCKET_PUBLISHER
-    socket_publisher::publisher publisher(
-        stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"), slam, slam->get_frame_publisher(), slam->get_map_publisher());
+#ifdef HAVE_PANGOLIN_VIEWER
+    std::shared_ptr<pangolin_viewer::viewer> viewer;
+    if (viewer_string == "pangolin_viewer") {
+        viewer = std::make_shared<pangolin_viewer::viewer>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "PangolinViewer"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
+#endif
+#ifdef HAVE_SOCKET_PUBLISHER
+    std::shared_ptr<socket_publisher::publisher> publisher;
+    if (viewer_string == "socket_publisher") {
+        publisher = std::make_shared<socket_publisher::publisher>(
+            stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "SocketPublisher"),
+            slam,
+            slam->get_frame_publisher(),
+            slam->get_map_publisher());
+    }
 #endif
 
     slam->request_loop_closure(keyfrm1_id, keyfrm2_id);
@@ -61,26 +75,30 @@ int run(const std::shared_ptr<stella_vslam::config>& cfg,
             std::this_thread::sleep_for(std::chrono::microseconds(5000));
         }
 
-        if (!disable_gui) {
-            // automatically close the viewer
-#ifdef USE_PANGOLIN_VIEWER
-            if (auto_term) {
-                viewer.request_terminate();
-            }
-#elif USE_SOCKET_PUBLISHER
-            if (auto_term) {
-                publisher.request_terminate();
-            }
+        // automatically close the viewer
+        if (auto_term) {
+            if (viewer_string == "pangolin_viewer") {
+#ifdef HAVE_PANGOLIN_VIEWER
+                viewer->request_terminate();
 #endif
+            }
+            if (viewer_string == "socket_publisher") {
+#ifdef HAVE_SOCKET_PUBLISHER
+                publisher->request_terminate();
+#endif
+            }
         }
     });
 
-    if (!disable_gui) {
-        // run the viewer in the current thread
-#ifdef USE_PANGOLIN_VIEWER
-        viewer.run();
-#elif USE_SOCKET_PUBLISHER
-        publisher.run();
+    // run the viewer in the current thread
+    if (viewer_string == "pangolin_viewer") {
+#ifdef HAVE_PANGOLIN_VIEWER
+        viewer->run();
+#endif
+    }
+    if (viewer_string == "socket_publisher") {
+#ifdef HAVE_SOCKET_PUBLISHER
+        publisher->run();
 #endif
     }
 
@@ -120,7 +138,7 @@ int main(int argc, char* argv[]) {
     auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
     auto eval_log = op.add<popl::Switch>("", "eval-log", "store trajectory for evaluation");
     auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db", "store a map database at this path after SLAM", "");
-    auto disable_gui = op.add<popl::Switch>("", "disable-gui", "run without GUI");
+    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [pangolin_viewer, socket_publisher, none]");
     try {
         op.parse(argc, argv);
     }
@@ -150,6 +168,41 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
+    // viewer
+    std::string viewer_string;
+    if (viewer->is_set()) {
+        viewer_string = viewer->value();
+        if (viewer_string != "pangolin_viewer" && viewer_string != "socket_publisher" && viewer_string != "none") {
+            std::cerr << "invalid arguments (--viewer)" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#ifndef HAVE_PANGOLIN_VIEWER
+        if (viewer_string == "pangolin_viewer") {
+            std::cerr << "pangolin_viewer not linked" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#endif
+#ifndef HAVE_SOCKET_PUBLISHER
+        if (viewer_string == "socket_publisher") {
+            std::cerr << "socket_publisher not linked" << std::endl
+                      << std::endl
+                      << op << std::endl;
+            return EXIT_FAILURE;
+        }
+#endif
+    }
+    else {
+#ifdef HAVE_PANGOLIN_VIEWER
+        viewer_string = "pangolin_viewer";
+#elif defined(HAVE_SOCKET_PUBLISHER)
+        viewer_string = "socket_publisher";
+#endif
+    }
+
     // setup logger
     spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] %^[%L] %v%$");
     spdlog::set_level(spdlog::level::from_str(log_level->value()));
@@ -176,7 +229,7 @@ int main(int argc, char* argv[]) {
                   auto_term->is_set(),
                   eval_log->is_set(),
                   map_db_path->value(),
-                  disable_gui->value());
+                  viewer_string);
 
 #ifdef USE_GOOGLE_PERFTOOLS
     ProfilerStop();
