@@ -30,13 +30,17 @@ endif()
 
 # ----- Show dialog -----
 
-find_package(pangolin_viewer)
+find_package(pangolin_viewer QUIET)
 if(pangolin_viewer_FOUND)
     message(STATUS "Viewer for examples: PangolinViewer")
 endif()
-find_package(socket_publisher)
+find_package(socket_publisher QUIET)
 if(socket_publisher_FOUND)
     message(STATUS "Viewer for examples: SocketPublisher")
+endif()
+find_package(iridescence_viewer)
+if(iridescence_viewer_FOUND)
+    message(STATUS "Viewer for examples: IridescenceViewer")
 endif()
 
 # ----- Build example executables -----
@@ -85,6 +89,12 @@ foreach(EXECUTABLE_TARGET IN LISTS EXECUTABLE_TARGETS)
         target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE HAVE_SOCKET_PUBLISHER)
         # Link viewer
         target_link_libraries(${EXECUTABLE_TARGET} PRIVATE socket_publisher::socket_publisher)
+    endif()
+    if(iridescence_viewer_FOUND)
+        # Set macro flag
+        target_compile_definitions(${EXECUTABLE_TARGET} PRIVATE HAVE_IRIDESCENCE_VIEWER)
+        # Link viewer
+        target_link_libraries(${EXECUTABLE_TARGET} PRIVATE iridescence_viewer::iridescence_viewer)
     endif()
 
     # Setup stack trace logger
