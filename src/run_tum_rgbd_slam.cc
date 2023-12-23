@@ -497,7 +497,7 @@ int main(int argc, char* argv[]) {
     auto map_db_path_out = op.add<popl::Value<std::string>>("o", "map-db-out", "store a map database at this path after slam", "");
     auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
     auto temporal_mapping = op.add<popl::Switch>("", "temporal-mapping", "enable temporal mapping");
-    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [pangolin_viewer, socket_publisher, none]");
+    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [iridescence_viewer, pangolin_viewer, socket_publisher, none]");
 
     try {
         op.parse(argc, argv);

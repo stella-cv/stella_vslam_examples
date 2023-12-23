@@ -160,7 +160,7 @@ int main(int argc, char* argv[]) {
     auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
     auto eval_log = op.add<popl::Switch>("", "eval-log", "store trajectory for evaluation");
     auto map_db_path = op.add<popl::Value<std::string>>("p", "map-db", "store a map database at this path after SLAM", "");
-    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [pangolin_viewer, socket_publisher, none]");
+    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [iridescence_viewer, pangolin_viewer, socket_publisher, none]");
     try {
         op.parse(argc, argv);
     }

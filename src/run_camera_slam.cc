@@ -436,7 +436,7 @@ int main(int argc, char* argv[]) {
     auto log_level = op.add<popl::Value<std::string>>("", "log-level", "log level", "info");
     auto disable_mapping = op.add<popl::Switch>("", "disable-mapping", "disable mapping");
     auto temporal_mapping = op.add<popl::Switch>("", "temporal-mapping", "enable temporal mapping");
-    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [pangolin_viewer, socket_publisher, none]");
+    auto viewer = op.add<popl::Value<std::string>>("", "viewer", "viewer [iridescence_viewer, pangolin_viewer, socket_publisher, none]");
     try {
         op.parse(argc, argv);
     }
