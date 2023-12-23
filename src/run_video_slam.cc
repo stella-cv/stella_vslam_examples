@@ -70,6 +70,8 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
     bool is_paused = false;
     std::mutex mtx_terminate;
     bool terminate_is_requested = false;
+    std::mutex mtx_step;
+    unsigned int step_count = 0;
     if (viewer_string == "iridescence_viewer") {
         iridescence_viewer = std::make_shared<iridescence_viewer::viewer>(
             stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "IridescenceViewer"),
@@ -78,6 +80,10 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
         iridescence_viewer->add_checkbox("Pause", [&is_paused, &mtx_pause](bool check) {
             std::lock_guard<std::mutex> lock(mtx_pause);
             is_paused = check;
+        });
+        iridescence_viewer->add_button("Step", [&step_count, &mtx_step] {
+            std::lock_guard<std::mutex> lock(mtx_step);
+            step_count++;
         });
         iridescence_viewer->add_button("Reset", [&is_paused, &mtx_pause, &slam] {
             slam->request_reset();
@@ -130,6 +136,13 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                 {
                     std::lock_guard<std::mutex> lock(mtx_pause);
                     if (!is_paused) {
+                        break;
+                    }
+                }
+                {
+                    std::lock_guard<std::mutex> lock(mtx_step);
+                    if (step_count > 0) {
+                        step_count--;
                         break;
                     }
                 }
