@@ -61,12 +61,35 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
 #endif
 #ifdef HAVE_IRIDESCENCE_VIEWER
     std::shared_ptr<iridescence_viewer::viewer> iridescence_viewer;
+    std::mutex mtx_pause;
+    bool is_paused = false;
+    std::mutex mtx_terminate;
+    bool terminate_is_requested = false;
     if (viewer_string == "iridescence_viewer") {
         iridescence_viewer = std::make_shared<iridescence_viewer::viewer>(
             stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "IridescenceViewer"),
-            slam,
             slam->get_frame_publisher(),
             slam->get_map_publisher());
+        iridescence_viewer->add_checkbox("Pause", [&is_paused, &mtx_pause](bool check) {
+            std::lock_guard<std::mutex> lock(mtx_pause);
+            is_paused = check;
+        });
+        iridescence_viewer->add_button("Reset", [&is_paused, &mtx_pause, &slam] {
+            slam->request_reset();
+        });
+        iridescence_viewer->add_button("Save and exit", [&is_paused, &mtx_pause, &terminate_is_requested, &mtx_terminate, &slam, &iridescence_viewer] {
+            std::lock_guard<std::mutex> lock1(mtx_pause);
+            is_paused = false;
+            std::lock_guard<std::mutex> lock2(mtx_terminate);
+            terminate_is_requested = true;
+            iridescence_viewer->request_terminate();
+        });
+        iridescence_viewer->add_close_callback([&is_paused, &mtx_pause, &terminate_is_requested, &mtx_terminate] {
+            std::lock_guard<std::mutex> lock1(mtx_pause);
+            is_paused = false;
+            std::lock_guard<std::mutex> lock2(mtx_terminate);
+            terminate_is_requested = true;
+        });
     }
 #endif
 #ifdef HAVE_SOCKET_PUBLISHER
@@ -96,10 +119,32 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
     // run the slam in another thread
     std::thread thread([&]() {
         while (is_not_end) {
+#ifdef HAVE_IRIDESCENCE_VIEWER
+            while (true) {
+                {
+                    std::lock_guard<std::mutex> lock(mtx_pause);
+                    if (!is_paused) {
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(5000));
+            }
+#endif
+
+#ifdef HAVE_IRIDESCENCE_VIEWER
+            // check if the termination of slam system is requested or not
+            {
+                std::lock_guard<std::mutex> lock(mtx_terminate);
+                if (terminate_is_requested) {
+                    break;
+                }
+            }
+#else
             // check if the termination of slam system is requested or not
             if (slam->terminate_is_requested()) {
                 break;
             }
+#endif
 
             is_not_end = video.read(frame);
             if (frame.empty()) {
@@ -189,12 +234,35 @@ int stereo_tracking(const std::shared_ptr<stella_vslam::system>& slam,
 #endif
 #ifdef HAVE_IRIDESCENCE_VIEWER
     std::shared_ptr<iridescence_viewer::viewer> iridescence_viewer;
+    std::mutex mtx_pause;
+    bool is_paused = false;
+    std::mutex mtx_terminate;
+    bool terminate_is_requested = false;
     if (viewer_string == "iridescence_viewer") {
         iridescence_viewer = std::make_shared<iridescence_viewer::viewer>(
             stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "IridescenceViewer"),
-            slam,
             slam->get_frame_publisher(),
             slam->get_map_publisher());
+        iridescence_viewer->add_checkbox("Pause", [&is_paused, &mtx_pause](bool check) {
+            std::lock_guard<std::mutex> lock(mtx_pause);
+            is_paused = check;
+        });
+        iridescence_viewer->add_button("Reset", [&is_paused, &mtx_pause, &slam] {
+            slam->request_reset();
+        });
+        iridescence_viewer->add_button("Save and exit", [&is_paused, &mtx_pause, &terminate_is_requested, &mtx_terminate, &slam, &iridescence_viewer] {
+            std::lock_guard<std::mutex> lock1(mtx_pause);
+            is_paused = false;
+            std::lock_guard<std::mutex> lock2(mtx_terminate);
+            terminate_is_requested = true;
+            iridescence_viewer->request_terminate();
+        });
+        iridescence_viewer->add_close_callback([&is_paused, &mtx_pause, &terminate_is_requested, &mtx_terminate] {
+            std::lock_guard<std::mutex> lock1(mtx_pause);
+            is_paused = false;
+            std::lock_guard<std::mutex> lock2(mtx_terminate);
+            terminate_is_requested = true;
+        });
     }
 #endif
 #ifdef HAVE_SOCKET_PUBLISHER
@@ -229,10 +297,32 @@ int stereo_tracking(const std::shared_ptr<stella_vslam::system>& slam,
     // run the slam in another thread
     std::thread thread([&]() {
         while (is_not_end) {
+#ifdef HAVE_IRIDESCENCE_VIEWER
+            while (true) {
+                {
+                    std::lock_guard<std::mutex> lock(mtx_pause);
+                    if (!is_paused) {
+                        break;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::microseconds(5000));
+            }
+#endif
+
+#ifdef HAVE_IRIDESCENCE_VIEWER
+            // check if the termination of slam system is requested or not
+            {
+                std::lock_guard<std::mutex> lock(mtx_terminate);
+                if (terminate_is_requested) {
+                    break;
+                }
+            }
+#else
             // check if the termination of slam system is requested or not
             if (slam->terminate_is_requested()) {
                 break;
             }
+#endif
 
             is_not_end = videos[0].read(frames[0]) && videos[1].read(frames[1]);
             if (frames[0].empty() || frames[1].empty()) {

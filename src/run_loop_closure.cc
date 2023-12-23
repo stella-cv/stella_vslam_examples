@@ -63,7 +63,6 @@ int run(const std::shared_ptr<stella_vslam::config>& cfg,
     if (viewer_string == "iridescence_viewer") {
         iridescence_viewer = std::make_shared<iridescence_viewer::viewer>(
             stella_vslam::util::yaml_optional_ref(cfg->yaml_node_, "IridescenceViewer"),
-            slam,
             slam->get_frame_publisher(),
             slam->get_map_publisher());
     }
