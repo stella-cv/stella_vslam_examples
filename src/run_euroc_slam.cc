@@ -573,7 +573,10 @@ int main(int argc, char* argv[]) {
     std::string viewer_string;
     if (viewer->is_set()) {
         viewer_string = viewer->value();
-        if (viewer_string != "pangolin_viewer" && viewer_string != "socket_publisher" && viewer_string != "none") {
+        if (viewer_string != "pangolin_viewer"
+            && viewer_string != "socket_publisher"
+            && viewer_string != "iridescence_viewer"
+            && viewer_string != "none") {
             std::cerr << "invalid arguments (--viewer)" << std::endl
                       << std::endl
                       << op << std::endl;
