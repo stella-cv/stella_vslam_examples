@@ -158,6 +158,11 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
             }
 
             is_not_end = video.read(frame);
+            double ms_since_start = video.get(cv::CAP_PROP_POS_MSEC);
+
+            if (ms_since_start > 0) {
+              timestamp = start_timestamp + (ms_since_start / 1000);
+            }
 
             const auto tp_1 = std::chrono::steady_clock::now();
 
@@ -180,8 +185,7 @@ int mono_tracking(const std::shared_ptr<stella_vslam::system>& slam,
                     std::this_thread::sleep_for(std::chrono::microseconds(static_cast<unsigned int>(wait_time * 1e6)));
                 }
             }
-
-            timestamp += 1.0 / slam->get_camera()->fps_;
+            
             ++num_frame;
 
 #ifdef HAVE_IRIDESCENCE_VIEWER
