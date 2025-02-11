@@ -525,6 +525,7 @@ int main(int argc, char* argv[]) {
     popl::OptionParser op("Allowed options");
     auto help = op.add<popl::Switch>("h", "help", "produce help message");
     auto vocab_file_path = op.add<popl::Value<std::string>>("v", "vocab", "vocabulary file path");
+    auto without_vocab = op.add<popl::Switch>("", "without-vocab", "run without vocabulary file");
     auto data_dir_path = op.add<popl::Value<std::string>>("d", "data-dir", "directory path which contains dataset");
     auto config_file_path = op.add<popl::Value<std::string>>("c", "config", "config file path");
     auto frame_skip = op.add<popl::Value<unsigned int>>("", "frame-skip", "interval of frame skip", 1);
@@ -562,7 +563,8 @@ int main(int argc, char* argv[]) {
         std::cerr << op << std::endl;
         return EXIT_FAILURE;
     }
-    if (!vocab_file_path->is_set() || !data_dir_path->is_set() || !config_file_path->is_set()) {
+    if ((!vocab_file_path->is_set() && !without_vocab->is_set())
+        || !data_dir_path->is_set() || !config_file_path->is_set()) {
         std::cerr << "invalid arguments" << std::endl;
         std::cerr << std::endl;
         std::cerr << op << std::endl;
@@ -636,7 +638,8 @@ int main(int argc, char* argv[]) {
 #endif
 
     // build a slam system
-    auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path->value());
+    std::string vocab_file_path_str = (without_vocab->is_set()) ? "" : vocab_file_path->value();
+    auto slam = std::make_shared<stella_vslam::system>(cfg, vocab_file_path_str);
     bool need_initialize = true;
     if (map_db_path_in->is_set()) {
         need_initialize = false;
